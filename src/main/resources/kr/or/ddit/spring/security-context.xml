@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:c="http://www.springframework.org/schema/c"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-5.7.xsd">
+
+<!-- 	1. Filter, XML, In memory 기반의 인증구조 -->
+<!-- 	2. Role 기반의 선택적 랜더링 : ex) 관리자에게는 관리자에 맞는 메뉴구조 랜더링 , 커스텀 태그 사용 -->
+<!-- 	3. MVC 모든 레이어에서 인증 객체를 확보하는 방법 -->
+<!-- 	4. 데이터베이스 기반의 인증구조 -->
+<!-- 	5. 비밀 번호 단방향 암호화 -->
+<!-- 	6. 설정 커스터마이징 -->
+
+<!-- 	AuthenticationManager -> AuthenticationProvider(신원 확인) -> UserDetailService(사용자 조회) -->
+	<bean id="passwordEncoder" class="org.springframework.security.crypto.factory.PasswordEncoderFactories" 
+		factory-method="createDelegatingPasswordEncoder"
+	/>
+	<security:authentication-manager>
+		<security:authentication-provider user-service-ref="userDetailServiceImpl">
+<!-- 			<security:user-service> -->
+<!-- 				<security:user name="a001" password="java" authorities="ROLE_USER"/> -->
+<!-- 				<security:user name="c001" password="java" authorities="ROLE_ADMIN"/> -->
+<!-- 			</security:user-service> -->
+			<security:password-encoder ref="passwordEncoder"/>
+		</security:authentication-provider>
+	</security:authentication-manager>
+
+	<bean id="authenticationFailureHandler" class="kr.or.ddit.security.handler.CustomAuthenticationFailureHandler" 
+		p:targetURL="/"
+	/>
+	
+	<bean id="httpFirewall" class="org.springframework.security.web.firewall.DefaultHttpFirewall" 
+		p:allowUrlEncodedSlash="true"
+	/>
+	<security:http-firewall ref="httpFirewall"/>
+	
+	<security:http pattern="/resources/**" security="none" />
+	<security:http >
+		<security:form-login 
+			default-target-url="/" always-use-default-target="true"
+			login-page="/login"
+			username-parameter="memId"
+			password-parameter="memPass"
+			authentication-failure-handler-ref="authenticationFailureHandler"
+		/>
+		<security:logout logout-url="/logout"/>
+<!-- 	AuthorizationManager -->
+		<security:intercept-url pattern="/websocket/**" access="permitAll"/>
+		<security:intercept-url pattern="/ws/**" access="permitAll"/>
+		<security:intercept-url pattern="/login" access="permitAll"/>
+		<security:intercept-url pattern="/index.do" access="permitAll"/>
+		<security:intercept-url pattern="/group/**/*View" access="T(kr.or.ddit.security.AuthorizeUtils).inGroup(authentication, request)"/>
+		<security:intercept-url pattern="/group/**/*Edit" access="T(kr.or.ddit.security.AuthorizeUtils).hasGroupRole(authentication, request, 'GROUP_MANAGER')"/>
+		<security:intercept-url pattern="/group/**" access="T(kr.or.ddit.security.AuthorizeUtils).inGroup(authentication, request)"/>
+		<security:intercept-url pattern="/board/boardInsert.do" access="hasRole('ADMIN')"/>
+		<security:intercept-url pattern="/**" access="isAuthenticated()"/>
+	</security:http>
+	
+<!-- 	global method security 설정  -->
+<!-- 	AOP 를 기반으로 @PreAuthorize/@PostAuthorize 등의 어노테이션을 가진 객체나 메소드를 타겟으로 위빙하여 접근 제어를 함.  -->
+	<security:global-method-security 
+		jsr250-annotations="enabled" 
+		pre-post-annotations="enabled"
+		secured-annotations="enabled"
+		proxy-target-class="false"	
+	/>
+</beans>
+
+
+
+
+
+
+
+
+
+
+
+
+
